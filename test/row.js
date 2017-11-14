@@ -79,6 +79,7 @@ var FakeFilter = {
 describe('Bigtable/Row', function() {
   var Row;
   var row;
+  var RowError;
 
   before(function() {
     Row = proxyquire('../src/row.js', {
@@ -91,6 +92,7 @@ describe('Bigtable/Row', function() {
       './mutation.js': FakeMutation,
       './filter.js': FakeFilter,
     });
+    RowError = require('../src/row.js').RowError;
   });
 
   beforeEach(function() {
@@ -113,9 +115,7 @@ describe('Bigtable/Row', function() {
 
       assert(row instanceof FakeGrpcServiceObject);
       assert.strictEqual(config.parent, TABLE);
-      assert.deepEqual(config.methods, {
-        exists: true,
-      });
+      assert.deepEqual(config.methods, null);
       assert.strictEqual(config.id, ROW_ID);
     });
 
@@ -781,6 +781,63 @@ describe('Bigtable/Row', function() {
       };
 
       row.deleteCells(columns, done);
+    });
+  });
+
+  describe('exists', function() {
+    it('should invoke the callback with Error when irrecoverable error happens', function(
+      done
+    ) {
+      let response = {};
+      let error = new Error('err');
+      row.parent.getRows = function(reqOpts, callback) {
+        callback(error, null, response);
+      };
+
+      row.exists(function(err, undefined) {
+        assert.strictEqual(err, error);
+        assert.strictEqual(undefined, null);
+        done();
+      });
+    });
+    it('should invoke the callback with status of false and with message when row is missing', function(
+      done
+    ) {
+      let response = {};
+
+      row.parent.getRows = function(reqOpts, callback) {
+        callback(new RowError(ROW_ID), null, response);
+      };
+
+      row.exists(function(err, results) {
+        var exists_ = results[0];
+        var message_ = results[1];
+
+        //console.log('Error:' + err + ' exists:' + exists_ + ' message:' + message_);
+        assert.strictEqual(exists_, false);
+        assert.strictEqual(message_, `Unknown row: ${ROW_ID}.`);
+        done();
+      });
+    });
+    it('should invoke the callback with data true when row exists', function(
+      done
+    ) {
+      var response = {};
+      var fakeRow = new Row(TABLE, ROW_ID);
+
+      fakeRow.data = {
+        a: 'a',
+      };
+
+      row.parent.getRows = function(reqOpts, callback) {
+        callback(null, [fakeRow], response);
+      };
+
+      row.exists(function(err, exists_) {
+        assert.ifError(err);
+        assert.strictEqual(exists_, true);
+        done();
+      });
     });
   });
 
