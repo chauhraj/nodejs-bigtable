@@ -34,6 +34,7 @@ var Mutation = require('./mutation.js');
  */
 var RowError = createErrorClass('RowError', function(row) {
   this.message = 'Unknown row: ' + row + '.';
+  this.code = 404;
 });
 
 /**
@@ -51,8 +52,32 @@ var RowError = createErrorClass('RowError', function(row) {
  * const row = table.row('gwashington');
  */
 function Row(table, key) {
+  var methods = {
+    /**
+     * Check if the table row exists.
+     *
+     * @method Row#exists
+     * @param {function} callback The callback function.
+     * @param {?error} callback.err An error returned while making this
+     *     request.
+     * @param {boolean} callback.exists Whether the row exists or not.
+     *
+     * @example
+     * row.exists(function(err, exists) {});
+     *
+     * //-
+     * // If the callback is omitted, we'll return a Promise.
+     * //-
+     * row.exists().then(function(data) {
+     *   var exists = data[0];
+     * });
+     */
+    exists: true,
+  };
+
   var config = {
     parent: table,
+    methods: methods,
     id: key,
   };
 
@@ -536,37 +561,6 @@ Row.prototype.deleteCells = function(columns, callback) {
   };
 
   this.parent.mutate(mutation, callback);
-};
-
-/**
- * Check if the table row exists.
- *
- * @method Row#exists
- * @param {function} callback The callback function.
- * @param {?error} callback.err An error returned while making this
- *     request.
- * @param {boolean} callback.exists Whether the row exists or not.
- *
- * @example
- * row.exists(function(err, exists) {});
- *
- * //-
- * // If the callback is omitted, we'll return a Promise.
- * //-
- * row.exists().then(function(data) {
- *   var exists = data[0];
- * });
- */
-Row.prototype.exists = function(callback) {
-  this.get(function(error, row, apiResponse) {
-    if (!error) {
-      callback(null, true);
-    } else if (error instanceof RowError) {
-      callback(null, [false, error.message]);
-    } else {
-      callback(error, null, apiResponse);
-    }
-  });
 };
 
 /**

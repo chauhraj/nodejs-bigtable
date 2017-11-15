@@ -79,7 +79,6 @@ var FakeFilter = {
 describe('Bigtable/Row', function() {
   var Row;
   var row;
-  var RowError;
 
   before(function() {
     Row = proxyquire('../src/row.js', {
@@ -92,7 +91,6 @@ describe('Bigtable/Row', function() {
       './mutation.js': FakeMutation,
       './filter.js': FakeFilter,
     });
-    RowError = require('../src/row.js').RowError;
   });
 
   beforeEach(function() {
@@ -115,7 +113,9 @@ describe('Bigtable/Row', function() {
 
       assert(row instanceof FakeGrpcServiceObject);
       assert.strictEqual(config.parent, TABLE);
-      assert.deepEqual(config.methods, null);
+      assert.deepEqual(config.methods, {
+        exists: true,
+      });
       assert.strictEqual(config.id, ROW_ID);
     });
 
@@ -785,37 +785,27 @@ describe('Bigtable/Row', function() {
   });
 
   describe('exists', function() {
-    it('should invoke the callback with Error when irrecoverable error happens', function(
-      done
-    ) {
+    it('should invoke the callback with Error when irrecoverable error happens', function(done) {
       let response = {};
       let error = new Error('err');
       row.parent.getRows = function(reqOpts, callback) {
         callback(error, null, response);
       };
 
-      row.exists(function(err, undefined) {
+      row.exists(function(err) {
         assert.strictEqual(err, error);
-        assert.strictEqual(undefined, null);
         done();
       });
     });
-    it('should invoke the callback with status of false and with message when row is missing', function(
-      done
-    ) {
+    it('should invoke the callback with status of false when row is missing', function(done) {
       let response = {};
 
       row.parent.getRows = function(reqOpts, callback) {
-        callback(new RowError(ROW_ID), null, response);
+        callback(new Row.RowError(ROW_ID), null, response);
       };
 
-      row.exists(function(err, results) {
-        var exists_ = results[0];
-        var message_ = results[1];
-
-        //console.log('Error:' + err + ' exists:' + exists_ + ' message:' + message_);
-        assert.strictEqual(exists_, false);
-        assert.strictEqual(message_, `Unknown row: ${ROW_ID}.`);
+      row.exists(function(err, result) {
+        assert.strictEqual(result, false);
         done();
       });
     });
@@ -998,6 +988,7 @@ describe('Bigtable/Row', function() {
       row.get(function(err, row_, apiResponse) {
         assert(err instanceof Row.RowError);
         assert.strictEqual(err.message, 'Unknown row: ' + row.id + '.');
+        assert.strictEqual(err.code, 404);
         assert.deepEqual(row_, null);
         assert.strictEqual(response, apiResponse);
         done();
@@ -1262,9 +1253,10 @@ describe('Bigtable/Row', function() {
   });
 
   describe('RowError', function() {
-    it('should supply the correct message', function() {
+    it('should supply the correct message and correct code of 404', function() {
       var error = new Row.RowError('test');
       assert.strictEqual(error.message, 'Unknown row: test.');
+      assert.strictEqual(error.code, 404);
     });
   });
 });
