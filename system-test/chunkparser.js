@@ -97,7 +97,8 @@ ChunkParser.prototype.toChunk = function(chunkStr) {
             tokenValue = parseInt(tokenValue);
           }
         }
-        current[tokenName] = this.toValue(`${currentNamespace}.${tokenName}`, tokenValue);
+        var variableName = `${currentNamespace}.${tokenName}`;
+        current[tokenName] = this.toValue(variableName, tokenValue);
         tokenName = tokenValue = null;
         break;
       case '<':
